@@ -9,8 +9,3 @@
 
 #include <iostream>
 
-const char* path_arquivo_entrada;
-const char* path_arquivo_saida;
-const char* Opc_Direc;
-const char* Opc_Peso_Aresta;
-const char* Opc_Peso_Nos;
