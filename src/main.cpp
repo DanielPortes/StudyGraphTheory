@@ -17,10 +17,11 @@ using namespace std;
 
 
 int main(int argc, char *argv[]) {
-   
+
+    cout << "teste";
     Grafo grafo(argc,argv);
     grafo.leitura(grafo.getPathArquivoEntrada());
 
-    cin.get();
+//    cin.get();
     return 0;
 }

@@ -10,25 +10,34 @@ using namespace std;
 
 Grafo::Grafo(int argc, char **argv)
 {
-    this->inicializaParametros( argc, argv);
+    this->inicializaParametros(argc, argv);
 }
 
 Grafo::~Grafo()
 {
-// TODO: deleter
+//    todo: deleter incorreto
+//    Vertice *j = this->vertice;
+//    auto i = j->proxVertice;
+//
+//    for (; i != nullptr; j = i, i = i->proxVertice)
+//    {
+//        delete j;
+//    }
+//    delete j;
 }
 
 void Grafo::inicializaParametros(int argc, char **argv)
 {
-    if (argc != 6) {
+    if (argc != 6)
+    {
         cerr << "[ERROR] Parametros faltantes!\n";
         assert(false);
     }
-    path_arquivo_entrada =   argv[1];
-    path_arquivo_saida =     argv[2];
-    Opc_Direc =              argv[3];
-    Opc_Peso_Aresta =        argv[4];
-    Opc_Peso_Nos =           argv[5];
+    path_arquivo_entrada = argv[1];
+    path_arquivo_saida = argv[2];
+    Opc_Direc = argv[3];
+    Opc_Peso_Aresta = argv[4];
+    Opc_Peso_Nos = argv[5];
 }
 
 streampos inline tamanhoArquivo(fstream &arq)
@@ -44,10 +53,10 @@ void Grafo::leitura(const char *path)
     fstream arquivoEntrada(path, ios::in);
     if (!arquivoEntrada.is_open())
     {
-        cerr << "ERRO: arquivo nao pode ser aberto \n\t lerArquivo";
+        cerr << "\n\t[ERRO] arquivo nao pode ser aberto lerArquivo";
         assert(false);
     }
-    // criando um buffer para o arquivo
+
     auto bufferSize = tamanhoArquivo(arquivoEntrada);
     unique_ptr<char[]> buffer(new char[bufferSize]);
     arquivoEntrada.read(buffer.get(), bufferSize);
@@ -57,7 +66,7 @@ void Grafo::leitura(const char *path)
     string linha;
     getline(fileIn, linha);
     this->nVertices = atoi(linha.c_str());
-    int id, aresta, peso;
+    int id = 0, aresta = 0, peso = 0;
     while (!fileIn.eof())
     {
         getline(fileIn, linha, ' ');
@@ -66,64 +75,81 @@ void Grafo::leitura(const char *path)
         getline(fileIn, linha, ' ');
         aresta = atoi(linha.c_str());
 
-        getline(fileIn, linha, ' ');
-        peso = atoi(linha.c_str());
+        if (getOpcPesoAresta())
+        {
+            getline(fileIn, linha);
+            peso = atoi(linha.c_str());
+        }
+        // TODO: aonde ficaria os peso dos vertices, seria trabalho 2?
 
         this->adicionaNo(id, aresta, peso);
     }
 
 }
 
-// TODO: duvida, essa parada de aresta, como ligar
-void Grafo::adicionaNo(int id, int aresta, int peso)
+Vertice *Grafo::criaNovoVertice(int id, int peso)
 {
-    // TODO: fazer a logica do direcionado
-    if (!this->no)
+    auto vertice = new Vertice();
+    vertice->id = id;
+    vertice->peso = peso;
+    return vertice;
+}
+
+void Grafo::criaNovaAresta(Aresta *&aresta, int id, int peso)
+{
+    Aresta* novaAresta = new Aresta();
+    novaAresta->id = id;
+    novaAresta->peso = peso;
+    if (!aresta)
     {
-        this->no = new No;
-        this->no->id = id;
-        this->no->peso = peso;
-//        this->no->proxAresta = nullptr;
+        aresta = novaAresta;
+        return;
+    }
+
+    auto i = aresta;
+    for (; i->proxAresta != nullptr; i = i->proxAresta)
+    {}
+    // adiciona aresta ao fim da lista encad
+    i->proxAresta = novaAresta;
+}
+
+void Grafo::adicionaNo(int id, int arestaID, int peso)
+{
+    if (!this->vertice)
+    {
+        this->vertice = criaNovoVertice(id, 0);
+        criaNovaAresta(this->vertice->proxAresta, arestaID, peso);
+        this->vertice->grauOut++;
     } else
     {
-        auto i = this->no->proxNo;
-        for (; i->proxNo != nullptr && i->id != id; i = i->proxNo)
+        auto i = this->vertice;
+        for (; i->proxVertice != nullptr && i->id != id; i = i->proxVertice)
+        {}
+
+        if (i->id != id) // Vertice nao presente na lista
         {
+            i->proxVertice = criaNovoVertice(id, 0);
+            i = i->proxVertice;
         }
-        if (i->id == id)
-        {
-            i->grauOut++;
-            i->proxAresta = new Aresta;
-            i->proxAresta->id = 0;
-            i->proxAresta->peso = peso;
-        } else
-        {
-            i->proxNo = new No;
-            i->id = id;
-            i->peso = peso;
-//        this->no->proxAresta = nullptr;
-        }
+        criaNovaAresta(i->proxAresta, arestaID, peso);
+        i->grauOut++;
     }
-    if (Opc_Direc)
+    if (atoi(Opc_Direc))
     {
-        auto i = this->no->proxNo;
-        for (; i->proxNo != nullptr && i->id != aresta; i = i->proxNo)
-        {
-        }
-        if (i->id == aresta)
+        auto i = this->vertice;
+        for (; i->proxVertice != nullptr && i->id != arestaID; i = i->proxVertice)
+        {}
+
+        if (i->id == arestaID) // Vertice ja presente na lista
         {
             i->grauOut++;
-            i->proxAresta = new Aresta;
-            i->proxAresta->id = 0;
-            i->proxAresta->peso = peso;
         } else
         {
-            i->proxNo = new No;
-            i->id = id;
-            i->peso = peso;
-//        this->no->proxAresta = nullptr;
+            i->proxVertice = criaNovoVertice(arestaID, 0);
+            i = i->proxVertice;
         }
-    }
+        criaNovaAresta(i->proxAresta, id, peso);
+    } // Nossa, esse codigo ficou lindo
 }
 
 const char *Grafo::getPathArquivoEntrada() const
@@ -134,4 +160,19 @@ const char *Grafo::getPathArquivoEntrada() const
 const char *Grafo::getPathArquivoSaida() const
 {
     return path_arquivo_saida;
+}
+
+const char *Grafo::getOpcDirec() const
+{
+    return Opc_Direc;
+}
+
+const char *Grafo::getOpcPesoAresta() const
+{
+    return Opc_Peso_Aresta;
+}
+
+const char *Grafo::getOpcPesoNos() const
+{
+    return Opc_Peso_Nos;
 }
