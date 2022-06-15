@@ -1,5 +1,9 @@
 #pragma once
 
+#include <vector>
+
+using namespace std;
+
 class Aresta
 {
 private:
@@ -14,21 +18,19 @@ private:
 public:
     Aresta() : id(-1), peso(-1), grauInp(0), grauOut(0), proxAresta(nullptr)
     {}
+
     ~Aresta()
     {
-        std::cout << "delete 2 \n";
-        if (proxAresta != nullptr)
-        {
-            delete proxAresta;
-        }
+        delete proxAresta;
     }
 };
 
 class Vertice
 {
 private:
-    int id;
-    int peso; // TODO: COMO USAR O PESO NOS VERTICES
+    int idNaMemoria;
+    int idNoArquivo;
+    int peso; // TODO: COMO USAR O PESO NOS VERTICES, TRABALHO 2?
     int grauInp; // TODO: ATUALIZAR OS GRAUS
     int grauOut;
     Aresta *proxAresta;
@@ -37,16 +39,15 @@ private:
     friend class Grafo;
 
 public:
-    Vertice() : id(-1), peso(-1), grauInp(0), grauOut(0), proxVertice(nullptr), proxAresta(nullptr)
+    Vertice()
+            : idNaMemoria(-1), idNoArquivo(-1), peso(-1), grauInp(0), grauOut(0), proxVertice(nullptr),
+              proxAresta(nullptr)
     {}
 
     ~Vertice()
     {
-        std::cout << "delete 1\n";
-        if (proxAresta != nullptr)
-        {
-            delete proxAresta;
-        }
+        delete proxAresta;
+        delete proxVertice;
     }
 };
 
@@ -54,8 +55,23 @@ public:
 class Grafo
 {
 private:
-    int nVertices;
-    Vertice *vertice; // primeiro vertice da lista
+    int nVerticesArquivo;
+    int nVerticesMemoria;
+
+    Vertice *vertices; // primeiro vertices da lista
+
+    const char *path_arquivo_entrada;
+    const char *path_arquivo_saida;
+    const char *Opc_Direc;
+    const char *Opc_Peso_Aresta;
+    const char *Opc_Peso_Nos;
+
+    Vertice *criaNovoVertice(int idNoArquivo, int idNaMemoria, int peso);
+
+    void inicializaParametros(int argc, char *argv[]);
+
+    void criaNovaAresta(Vertice *&vertice, int idNoArquivo, int &idNaMemoria, int peso);
+
 public:
     Grafo(int argc, char **argv);
 

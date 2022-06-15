@@ -8,22 +8,14 @@
 
 using namespace std;
 
-Grafo::Grafo(int argc, char **argv)
+Grafo::Grafo(int argc, char **argv) : vertices(nullptr), nVerticesMemoria(0), nVerticesArquivo(0)
 {
     this->inicializaParametros(argc, argv);
 }
 
 Grafo::~Grafo()
 {
-//    todo: deleter incorreto
-//    Vertice *j = this->vertice;
-//    auto i = j->proxVertice;
-//
-//    for (; i != nullptr; j = i, i = i->proxVertice)
-//    {
-//        delete j;
-//    }
-//    delete j;
+    delete this->vertices;
 }
 
 void Grafo::inicializaParametros(int argc, char **argv)
