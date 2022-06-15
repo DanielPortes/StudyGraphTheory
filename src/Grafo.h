@@ -51,7 +51,6 @@ public:
     }
 };
 
-
 class Grafo
 {
 private:
@@ -73,13 +72,14 @@ private:
     void criaNovaAresta(Vertice *&vertice, int idNoArquivo, int &idNaMemoria, int peso);
 
 public:
+
     Grafo(int argc, char **argv);
 
     ~Grafo();
 
     void leitura(const char *path);
 
-    void adicionaNo(int, int, int);
+    void adicionaNo(int &idNoArquivo, int &idNaMemoria, int arestaID, int peso);
 
     const char *getPathArquivoEntrada() const;
 

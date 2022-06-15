@@ -3,6 +3,7 @@
 #include <memory>
 #include <sstream>
 #include <iostream>
+#include <vector>
 
 #include "Grafo.h"
 
@@ -57,12 +58,14 @@ void Grafo::leitura(const char *path)
 
     string linha;
     getline(fileIn, linha);
-    this->nVertices = atoi(linha.c_str());
-    int id = 0, aresta = 0, peso = 0;
+
+    this->nVerticesArquivo = atoi(linha.c_str());
+    int idNaMemoria = 0, idNoArquivo = 0, aresta = 0, peso = 0;
     while (!fileIn.eof())
     {
+        // TODO: professor flw na possibilidade de o id do vertices nao ser um numero, daria certo?
         getline(fileIn, linha, ' ');
-        id = atoi(linha.c_str());
+        idNoArquivo = atoi(linha.c_str());
 
         getline(fileIn, linha, ' ');
         aresta = atoi(linha.c_str());
@@ -74,73 +77,84 @@ void Grafo::leitura(const char *path)
         }
         // TODO: aonde ficaria os peso dos vertices, seria trabalho 2?
 
-        this->adicionaNo(id, aresta, peso);
+        this->adicionaNo(idNoArquivo, idNaMemoria, aresta, peso);
+        ++idNaMemoria;
     }
-
+    this->nVerticesMemoria = idNaMemoria;
 }
 
-Vertice *Grafo::criaNovoVertice(int id, int peso)
+Vertice *Grafo::criaNovoVertice(int idNoArquivo, int idNaMemoria, int peso)
 {
     auto vertice = new Vertice();
-    vertice->id = id;
+    vertice->idNoArquivo = idNoArquivo;
+    vertice->idNaMemoria = idNoArquivo;
     vertice->peso = peso;
     return vertice;
 }
 
-void Grafo::criaNovaAresta(Aresta *&aresta, int id, int peso)
+void Grafo::criaNovaAresta(Vertice *&vertice, int idNoArquivo, int &idNaMemoria, int peso)
 {
-    Aresta* novaAresta = new Aresta();
-    novaAresta->id = id;
-    novaAresta->peso = peso;
-    if (!aresta)
+    auto j = this->vertices;
+    for (; j->proxVertice != nullptr && j->idNoArquivo != idNoArquivo; j = j->proxVertice)
+    {}
+
+    if (j->idNoArquivo != idNoArquivo)
     {
-        aresta = novaAresta;
+        j->proxVertice = criaNovoVertice(idNoArquivo, idNaMemoria, 0);
+    }
+
+    auto *novaAresta = new Aresta();
+    novaAresta->id = idNoArquivo;
+    novaAresta->peso = peso;
+    if (!vertice->proxAresta)
+    {
+        vertice->proxAresta = novaAresta;
         return;
     }
 
-    auto i = aresta;
+    // adiciona aresta ao fim da lista encad
+    auto i = vertice->proxAresta;
     for (; i->proxAresta != nullptr; i = i->proxAresta)
     {}
-    // adiciona aresta ao fim da lista encad
     i->proxAresta = novaAresta;
 }
 
-void Grafo::adicionaNo(int id, int arestaID, int peso)
+void Grafo::adicionaNo(int &idNoArquivo, int &idNaMemoria, int arestaID, int peso)
 {
-    if (!this->vertice)
+    if (!this->vertices)
     {
-        this->vertice = criaNovoVertice(id, 0);
-        criaNovaAresta(this->vertice->proxAresta, arestaID, peso);
-        this->vertice->grauOut++;
+        this->vertices = criaNovoVertice(idNoArquivo, idNaMemoria, 0);
+        criaNovaAresta(this->vertices, arestaID, ++idNaMemoria, peso);
+        this->vertices->grauOut++;
     } else
     {
-        auto i = this->vertice;
-        for (; i->proxVertice != nullptr && i->id != id; i = i->proxVertice)
+        auto i = this->vertices;
+        for (; i->proxVertice != nullptr && i->idNoArquivo != idNoArquivo; i = i->proxVertice)
         {}
 
-        if (i->id != id) // Vertice nao presente na lista
+        if (i->idNoArquivo != idNoArquivo) // Vertice nao presente na lista
         {
-            i->proxVertice = criaNovoVertice(id, 0);
+            i->proxVertice = criaNovoVertice(idNoArquivo, idNaMemoria, 0);
             i = i->proxVertice;
         }
-        criaNovaAresta(i->proxAresta, arestaID, peso);
+        criaNovaAresta(i, arestaID, ++idNaMemoria, peso);
         i->grauOut++;
     }
-    if (atoi(Opc_Direc))
+    if (!atoi(Opc_Direc))
     {
-        auto i = this->vertice;
-        for (; i->proxVertice != nullptr && i->id != arestaID; i = i->proxVertice)
+        auto i = this->vertices;
+        for (; i->proxVertice != nullptr && i->idNoArquivo != arestaID; i = i->proxVertice)
         {}
 
-        if (i->id == arestaID) // Vertice ja presente na lista
+        if (i->idNoArquivo == arestaID) // Vertice ja presente na lista
         {
             i->grauOut++;
         } else
         {
-            i->proxVertice = criaNovoVertice(arestaID, 0);
+            i->proxVertice = criaNovoVertice(arestaID, idNaMemoria, 0);
             i = i->proxVertice;
         }
-        criaNovaAresta(i->proxAresta, id, peso);
+        criaNovaAresta(i, idNoArquivo, ++idNaMemoria, peso);
     } // Nossa, esse codigo ficou lindo
 }
 
