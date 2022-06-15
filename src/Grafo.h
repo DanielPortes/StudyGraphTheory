@@ -91,17 +91,16 @@ public:
 
     const char *getOpcPesoNos() const;
 
-private:
-    const char *path_arquivo_entrada;
-    const char *path_arquivo_saida;
-    const char *Opc_Direc;
-    const char *Opc_Peso_Aresta;
-    const char *Opc_Peso_Nos;
+    void imprimeFechoTransitivoDireto(int idNoArquivo);
 
-    Vertice *criaNovoVertice(int id, int peso);
+    void imprimeFechoTransitivoIndireto(int idNoArquivo);
 
-    void inicializaParametros(int argc, char *argv[]);
+    void profundidade(int k, vector<pair<Vertice *, bool>> *visitados);
 
-    void criaNovaAresta(Aresta *&aresta, int id, int peso);
+    bool profundidade(const int id, int i, vector<tuple<Vertice *, bool, bool>> *visitados);
+
+    void arvoreGeradoraMinima(vector<Vertice> &vertices);
+
+
 };
 

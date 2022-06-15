@@ -18,10 +18,10 @@ using namespace std;
 
 int main(int argc, char *argv[]) {
 
-    cout << "teste";
     Grafo grafo(argc,argv);
     grafo.leitura(grafo.getPathArquivoEntrada());
-
+    grafo.imprimeFechoTransitivoDireto(1);
+//    grafo.imprimeFechoTransitivoIndireto(5);
 //    cin.get();
     return 0;
 }

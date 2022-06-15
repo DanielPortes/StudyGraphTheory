@@ -158,6 +158,105 @@ void Grafo::adicionaNo(int &idNoArquivo, int &idNaMemoria, int arestaID, int pes
     } // Nossa, esse codigo ficou lindo
 }
 
+// TODO: e se o vertices estiver desconectado de todos
+void Grafo::imprimeFechoTransitivoDireto(int idNoArquivo)
+{
+    if (idNoArquivo < 0 || idNoArquivo > this->nVerticesArquivo)
+    {
+        cerr << "\n[ERROR] Grafo::imprimeFechoTransitivoDireto(int idNoArquivo), \t idNoArquivo invalido";
+    }
+    auto visitados = new vector<pair<Vertice *, bool>>;
+    visitados->resize(this->nVerticesArquivo);
+    auto i = this->vertices;
+
+    for (int k = 0; i != nullptr; i = i->proxVertice, ++k)
+    {
+        (*visitados)[k] = make_pair(i,
+                                    false); // TODO: por segurando troquei [K] pelo id, testar e possivelmente voltar para K
+    }
+    profundidade(idNoArquivo, visitados);
+
+    cout << "\nFecho transitivo direto do vertices ( " << idNoArquivo << " ) = { ";
+    for (auto no: *visitados)
+    {
+        if (no.second && no.first->idNoArquivo != idNoArquivo) // TODO: solucao preguicosa para n imprimir a si mesmo
+            cout << no.first->idNoArquivo << ", ";
+    }
+    cout << "\b\b }\n";
+    delete visitados;
+}
+
+void Grafo::profundidade(const int k, vector<pair<Vertice *, bool>> *visitados)
+{
+    (*visitados)[k].second = true;
+
+    auto i = (*visitados)[k].first;
+    for (auto j = i->proxAresta; j != nullptr; j = j->proxAresta)
+    {
+        if (!(*visitados)[j->id].second)
+        {
+            profundidade(j->id, visitados);
+        }
+    }
+}
+
+void Grafo::imprimeFechoTransitivoIndireto(int idNoArquivo)
+{
+    if (idNoArquivo < 0 || idNoArquivo > this->nVerticesArquivo)
+    {
+        cerr << "\n[ERROR] Grafo::imprimeFechoTransitivoDireto(int idNoArquivo), \t idNoArquivo invalido";
+    }
+    // pointeiro vertice, condicao de visita, condicao de acesso ao vertice
+    auto visitados = new vector<tuple<Vertice *, bool, bool>>;
+    visitados->resize((this->nVerticesArquivo));
+    auto i = this->vertices;
+
+    // TODO: criar um vetor de nVerticesArquivo e acessar com idNaMemoria, BUG-PRONE
+    for (int k = 0; i != nullptr; i = i->proxVertice, ++k)
+    {
+        (*visitados)[k] = make_tuple(i,
+                                     false,
+                                     false); // TODO: por segurando troquei [K] pelo id, testar e possivelmente voltar para K
+    }
+    int aux = 0;
+    for (auto &vertice: *visitados)
+    {
+        if (!get<1>(vertice))
+        {
+            profundidade(idNoArquivo, aux, visitados);
+        }
+        ++aux;
+    }
+
+    cout << "\nFecho transitivo indireto do vertices ( " << idNoArquivo << " ) = { ";
+
+    for (auto no: *visitados)
+    {
+        if (get<2>(no))
+            cout << get<0>(no)->idNoArquivo << ", ";
+    }
+    cout << "\b\b }\n";
+    delete visitados;
+}
+
+bool Grafo::profundidade(const int id, int i, vector<tuple<Vertice *, bool, bool>> *visitados)
+{
+    get<1>((*visitados)[i]) = true;
+
+    Vertice *v = get<0>((*visitados)[i]);
+
+    for (auto j = v->proxAresta; j != nullptr; j = j->proxAresta)
+    {
+        if (j->id == id)
+        {
+            get<2>((*visitados)[i]) = true;
+            return true;
+        }
+
+        get<2>((*visitados)[i]) = profundidade(id, j->id, visitados);
+    }
+}
+
 const char *Grafo::getPathArquivoEntrada() const
 {
     return path_arquivo_entrada;
@@ -182,3 +281,4 @@ const char *Grafo::getOpcPesoNos() const
 {
     return Opc_Peso_Nos;
 }
+
