@@ -70,7 +70,7 @@ e a seguinte linha para rodar:
 ```
 exemplo de linha para execução:
 ```
-./execGrupoX entrada.txt saida.dot 0 1  0
+./execGrupoX entrada.txt saida.dot 0 1 0
 ```
 ## BUILD ALTERNATIVA 2
 
