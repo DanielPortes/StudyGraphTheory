@@ -66,11 +66,11 @@ g++ -O3 *.cpp -o execGrupoX -g
 
 e a seguinte linha para rodar:
 ```
-./main <entrada do arquivo CSV> 
+./main <arquivo_entrada> <arquivo_saida> <Opc_Direc> <Opc_Peso_Aresta> <Opc_Peso_Nos>
 ```
 exemplo de linha para execução:
 ```
-•./execGrupoX <arquivo_entrada> <arquivo_saida> <Opc_Direc> <Opc_Peso_Aresta> <Opc_Peso_Nos>
+•./execGrupoX entrada.txt saida.dot 0 1  0
 ```
 ## BUILD ALTERNATIVA 2
 
