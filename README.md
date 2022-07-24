@@ -66,7 +66,7 @@ g++ -O3 *.cpp -o execGrupoX -g
 
 e a seguinte linha para rodar:
 ```
-./main <arquivo_entrada> <arquivo_saida> <Opc_Direc> <Opc_Peso_Aresta> <Opc_Peso_Nos>
+./execGrupoX <arquivo_entrada> <arquivo_saida> <Opc_Direc> <Opc_Peso_Aresta> <Opc_Peso_Nos>
 ```
 exemplo de linha para execução:
 ```
