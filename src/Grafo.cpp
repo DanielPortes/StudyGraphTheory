@@ -1,24 +1,31 @@
+/*
+ * Desenvolvido por: DANIEL FAGUNDES 100%
+ *
+ * */
+
+
 #include <fstream>
-#include <cassert>
 #include <memory>
 #include <sstream>
 #include <iostream>
 #include <vector>
 #include <algorithm>
 #include <queue>
-#include <numeric>
 #include <stack>
+#include <limits>
+#include <string_view>
 
 #include "Grafo.h"
+#include "DisjointSet.h"
 
 using namespace std;
 
-Grafo::Grafo(int argc, char **argv) : vertices(nullptr), nVerticesMemoria(0), nVerticesArquivo(0), nArestasArquivo(0)
+Grafo::Grafo(size_t argc, char **argv) : vertices(nullptr), nVerticesMemoria(0), nVerticesArquivo(0), nArestasArquivo(0)
 {
     if (argc != 6)
     {
         cerr << "[ERROR] Parametros faltantes!\n";
-        assert(false);
+        exit(10);
     }
     path_arquivo_entrada = argv[1];
     path_arquivo_saida = argv[2];
@@ -57,33 +64,28 @@ void Grafo::imprimirGrafo()
         }
         cout << "\n";
     }
-//    for (auto v = this->vertices; v != nullptr; v = v->proxVertice)
-//    {
-//        cout << "Vertice " << v->idNoArquivo << ": ";
-//        for (auto a = v->proxAresta; a != nullptr; a = a->proxAresta)
-//        {
-//            cout << a->id << " ";
-//        }
-//        cout << "\n";
-//    }
-//    cout << "\n";
+
+#ifndef NDEBUG
+    string_view pathSaida = "grafoCompleto.dot";
+    escreveArquivoDot(this->getOpcDirec(), nullptr, &pathSaida);
+#endif
 }
 
 streampos inline tamanhoArquivo(fstream &arq)
 {
-    arq.seekg(0, arq.end);
+    arq.seekg(0, std::fstream::end);
     streampos tam = arq.tellg();
     arq.seekg(0);
     return tam;
 }
 
-void Grafo::leitura(const char *path)
+void Grafo::leitura(string_view path)
 {
-    fstream arquivoEntrada(path, ios::in);
+    fstream arquivoEntrada(static_cast<string>(path), ios::in);
     if (!arquivoEntrada.is_open())
     {
         cerr << "\n\t[ERRO] arquivo nao pode ser aberto lerArquivo";
-        assert(false);
+        exit(10);
     }
 
     auto bufferSize = tamanhoArquivo(arquivoEntrada);
@@ -94,26 +96,29 @@ void Grafo::leitura(const char *path)
 
     string linha;
     getline(fileIn, linha);
+    this->nVerticesArquivo = stoi(linha);
 
-    this->nVerticesArquivo = atoi(linha.c_str());
-    int verticeIdArquivo = 0, arestaId = 0, peso = 0;
+    char delimitador = this->getOpcPesoAresta() ? ' ' : '\n';
+    int verticeIdArquivo = 0, arestaId = 0, pesoAresta = 1; //pesoAresta padrao, se ausente = 1
+    bool arestasComPesos = getOpcPesoAresta();
     while (!fileIn.eof())
     {
-        // TODO: professor flw na possibilidade de o id do vertices nao ser um numero, daria certo?
         getline(fileIn, linha, ' ');
         verticeIdArquivo = atoi(linha.c_str());
 
-        getline(fileIn, linha, ' ');
+        getline(fileIn, linha, delimitador);
         arestaId = atoi(linha.c_str());
 
-        if (getOpcPesoAresta())
+        if (arestasComPesos)
         {
             getline(fileIn, linha);
-            peso = atoi(linha.c_str());
+            pesoAresta = atoi(linha.c_str());
         }
-        // TODO: aonde ficaria os peso dos vertices, seria trabalho 2?
-
-        this->adicionaNo(verticeIdArquivo, arestaId, peso);
+        if (verticeIdArquivo == 0 && arestaId == 0) // TODO: ficou uma droga isso, refatorar
+        {
+            break;
+        }
+        this->adicionaNo({verticeIdArquivo, arestaId}, pesoAresta);
     }
     this->imprimirGrafo();
 }
@@ -122,209 +127,109 @@ Vertice *Grafo::criaNovoVertice(int idNoArquivo, int peso)
 {
     auto vertice = new Vertice();
     vertice->idNoArquivo = idNoArquivo;
-    vertice->idNaMemoria = this->nVerticesMemoria;
     ++this->nVerticesMemoria;
     vertice->peso = peso;
     return vertice;
 }
 
+// TODO: refatorar, quebrar o codigo e usar ptr ultimo vertice
 void Grafo::criaNovaAresta(Vertice *&vertice, int idPonta, int pesoAresta)
 {
+    auto i = vertice->proxAresta;
+    for (; i && i->proxAresta != nullptr && i->id != idPonta; i = i->proxAresta)
+    {}
+    if (i != nullptr && i->id == idPonta) // ja existe aresta
+    {
+        return;
+    }
+    // primeiro verifica-se vertice destino existe
     auto j = this->vertices;
     for (; j->proxVertice != nullptr && j->idNoArquivo != idPonta; j = j->proxVertice)
     {}
-
     if (j->idNoArquivo != idPonta)
     {
-        j->proxVertice = criaNovoVertice(idPonta, 0);
+        j->proxVertice = criaNovoVertice(idPonta, 0); // nao existe, cria-se vertice destino
+        j = j->proxVertice;
     }
+    j->grauIn++;
+
     auto *novaAresta = new Aresta();
     novaAresta->id = idPonta;
-    novaAresta->idNaMemoria = this->nArestasArquivo;
-    ++this->nArestasArquivo;
     novaAresta->peso = pesoAresta;
+    ++this->nArestasArquivo;
+    ++vertice->grauOut;
+
+    // por fim, sempre adicionar a aresta no final da lista encadeada de arestas
     if (!vertice->proxAresta)
     {
         vertice->proxAresta = novaAresta;
         return;
     }
-
-    // adiciona aresta ao fim da lista encad
-    auto i = vertice->proxAresta;
-    for (; i->proxAresta != nullptr; i = i->proxAresta)
+    i = vertice->proxAresta;
+    for (; i->proxAresta != nullptr && i->id != novaAresta->id; i = i->proxAresta)
     {}
     i->proxAresta = novaAresta;
 }
 
-void Grafo::adicionaNo(int &idNoArquivo, int arestaID, int peso)
+void Grafo::adicionaNo(pairPontos pontos, int peso)
 {
     if (!this->vertices)
     {
-        this->vertices = criaNovoVertice(idNoArquivo, 0);
-        criaNovaAresta(this->vertices, arestaID, peso);
-        this->vertices->grauOut++;
+        this->vertices = criaNovoVertice(pontos.first, 0);
+        criaNovaAresta(this->vertices, pontos.second, peso);
     }
     else
     {
         auto i = this->vertices;
-        for (; i->proxVertice != nullptr && i->idNoArquivo != idNoArquivo; i = i->proxVertice)
+        for (; i->proxVertice != nullptr && i->idNoArquivo != pontos.first; i = i->proxVertice)
         {}
 
-        if (i->idNoArquivo != idNoArquivo) // Vertice nao presente na lista
+        if (i->idNoArquivo != pontos.first) // Vertice nao presente na lista
         {
-            i->proxVertice = criaNovoVertice(idNoArquivo, 0);
+            i->proxVertice = criaNovoVertice(pontos.first, 0);
             i = i->proxVertice;
         }
-        criaNovaAresta(i, arestaID, peso);
-        i->grauOut++;
+        criaNovaAresta(i, pontos.second, peso);
     }
-    if (!atoi(Opc_Direc))
+    if (!getOpcDirec()) // // se nao direcionado, adiciona aresta inversa
     {
         auto i = this->vertices;
-        for (; i->proxVertice != nullptr && i->idNoArquivo != arestaID; i = i->proxVertice)
+        for (; i->proxVertice != nullptr && i->idNoArquivo != pontos.second; i = i->proxVertice)
         {}
 
-        if (i->idNoArquivo == arestaID) // Vertice ja presente na lista
+        if (i->idNoArquivo != pontos.second) // Vertice ainda nao presente na lista
         {
-            i->grauOut++;
-        }
-        else
-        {
-            i->proxVertice = criaNovoVertice(arestaID, 0);
+            i->proxVertice = criaNovoVertice(pontos.second, 0);
             i = i->proxVertice;
         }
-        criaNovaAresta(i, idNoArquivo, peso);
-    } // Nossa, esse codigo ficou lindo
-}
+        criaNovaAresta(i, pontos.first, peso);
 
-// TODO: e se o vertices estiver desconectado de todos
-void Grafo::imprimeFechoTransitivoDireto(int idNoArquivo)
-{
-    if (idNoArquivo < 0 || idNoArquivo > this->nVerticesArquivo)
-    {
-        cerr << "\n[ERROR] Grafo::imprimeFechoTransitivoDireto(int idNoArquivo), \t idNoArquivo invalido";
-        assert(false);
-    }
-    auto visitados = new vector<pair<Vertice *, bool>>;
-    visitados->resize(this->nVerticesArquivo);
-    auto i = this->vertices;
-
-    for (int k = 0; i != nullptr; i = i->proxVertice, ++k)
-    {
-        (*visitados)[k] = make_pair(i,
-                                    false); // TODO: por segurando troquei [K] pelo id, testar e possivelmente voltar para K
-    }
-    profundidade(idNoArquivo, visitados);
-
-    cout << "\nFecho transitivo direto do vertices ( " << idNoArquivo << " ) = { ";
-    for (auto no: *visitados)
-    {
-        if (no.second && no.first->idNoArquivo != idNoArquivo)
-        { // TODO: solucao preguicosa para n imprimirGrafo a si mesmo
-            cout << no.first->idNoArquivo << ", ";
-        }
-    }
-    cout << "\b\b }\n";
-    delete visitados;
-}
-
-void Grafo::profundidade(const int k, vector<pair<Vertice *, bool>> *visitados)
-{
-    (*visitados)[k].second = true;
-
-    auto i = (*visitados)[k].first;
-    for (auto j = i->proxAresta; j != nullptr; j = j->proxAresta)
-    {
-        if (!(*visitados)[j->id].second)
-        {
-            profundidade(j->id, visitados);
-        }
     }
 }
 
-void Grafo::imprimeFechoTransitivoIndireto(int idNoArquivo)
-{
-    if (idNoArquivo < 0 || idNoArquivo > this->nVerticesArquivo)
-    {
-        cerr << "\n[ERROR] Grafo::imprimeFechoTransitivoDireto(int idNoArquivo), \t idNoArquivo invalido";
-        assert(false);
-    }
-    // pointeiro vertice, condicao de visita, condicao de acesso ao vertice
-    auto visitados = new vector<tuple<Vertice *, bool, bool>>;
-    visitados->resize((this->nVerticesArquivo));
-    auto i = this->vertices;
-
-    // TODO: criar um vetor de nVerticesArquivo e acessar com idNaMemoria, BUG-PRONE
-    for (int k = 0; i != nullptr; i = i->proxVertice, ++k)
-    {
-        (*visitados)[k] = make_tuple(i,
-                                     false,
-                                     false); // TODO: por segurando troquei [K] pelo id, testar e possivelmente voltar para K
-    }
-    int aux = 0;
-    for (auto &vertice: *visitados)
-    {
-        if (!get<1>(vertice))
-        {
-            profundidade(idNoArquivo, aux, visitados);
-        }
-        ++aux;
-    }
-
-    cout << "\nFecho transitivo indireto do vertices ( " << idNoArquivo << " ) = { ";
-
-    for (auto no: *visitados)
-    {
-        if (get<2>(no))
-        {
-            cout << get<0>(no)->idNoArquivo << ", ";
-        }
-    }
-    cout << "\b\b }\n";
-    delete visitados;
-}
-
-bool Grafo::profundidade(const int id, int i, vector<tuple<Vertice *, bool, bool>> *visitados)
-{
-    get<1>((*visitados)[i]) = true;
-
-    Vertice *v = get<0>((*visitados)[i]);
-
-    for (auto j = v->proxAresta; j != nullptr; j = j->proxAresta)
-    {
-        if (j->id == id)
-        {
-            get<2>((*visitados)[i]) = true;
-            return true;
-        }
-
-        get<2>((*visitados)[i]) = profundidade(id, j->id, visitados);
-    }
-}
-
-const char *Grafo::getPathArquivoEntrada() const
+string Grafo::getPathArquivoEntrada() const
 {
     return path_arquivo_entrada;
 }
 
-const char *Grafo::getPathArquivoSaida() const
+std::string Grafo::getPathArquivoSaida() const
 {
     return path_arquivo_saida;
 }
 
-const char *Grafo::getOpcDirec() const
+bool Grafo::getOpcDirec() const
 {
-    return Opc_Direc;
+    return Opc_Direc == "1";
 }
 
-const char *Grafo::getOpcPesoAresta() const
+bool Grafo::getOpcPesoAresta() const
 {
-    return Opc_Peso_Aresta;
+    return Opc_Peso_Aresta == "1";
 }
 
-const char *Grafo::getOpcPesoNos() const
+bool Grafo::getOpcPesoNos() const
 {
-    return Opc_Peso_Nos;
+    return Opc_Peso_Nos == "1";
 }
 
 //TODO: verificar se o grafo possui ciclo negativo
@@ -451,16 +356,16 @@ void Grafo::caminhoMinimoFloyd(int src, int destino)
     cout << src << "\n";
 }
 
-Grafo *Grafo::getSubGrafo(const vector<int> &conjVeticeInduzido, bool direcionado)
+Grafo *Grafo::retornaSubgrafoVerticeInduzido(const vector<int> &conjVeticeInduzido, bool direcionado)
 {
     cout
             << "Gerando subgrafo... \n[WARNING] Atencao aos vertices passados por parametro no conjunto vertice induzido\n";
     vector<const char *> argv{"subgrafo",
-                              const_cast<char *>(this->getPathArquivoEntrada()),
-                              const_cast<char *>(this->getPathArquivoSaida()),
+                              this->getPathArquivoEntrada().c_str(),
+                              this->getPathArquivoSaida().c_str(),
                               const_cast<char *>(direcionado ? "1" : "0"),
-                              const_cast<char *>(getOpcPesoAresta()),
-                              const_cast<char *>(getOpcPesoNos())};
+                              const_cast<char *>(getOpcPesoAresta() ? "1" : "0"),
+                              const_cast<char *>(getOpcPesoNos() ? "1" : "0")};
     auto subgrafo = new Grafo(argv.size(), const_cast<char **>(argv.data()));
     int idContador = 0;
     for (auto i = this->vertices; i != nullptr; i = i->proxVertice)
@@ -471,13 +376,13 @@ Grafo *Grafo::getSubGrafo(const vector<int> &conjVeticeInduzido, bool direcionad
             {
                 if (find(conjVeticeInduzido.begin(), conjVeticeInduzido.end(), j->id) != conjVeticeInduzido.end())
                 {
-                    subgrafo->adicionaNo(i->idNoArquivo, j->id, j->peso);
+                    subgrafo->adicionaNo({i->idNoArquivo, j->id}, j->peso);
                     ++idContador;
                 }
             }
         }
     }
-    subgrafo->nVerticesArquivo = conjVeticeInduzido.size();
+    subgrafo->nVerticesArquivo = static_cast<int>(conjVeticeInduzido.size());
     subgrafo->nVerticesMemoria = idContador;
     return subgrafo; // lembrar de deletar o grafo retornado
 }
@@ -486,7 +391,7 @@ Grafo *Grafo::getSubGrafo(const vector<int> &conjVeticeInduzido, bool direcionad
 // TODO: verificar se o grafo eh conexo e tem peso nas arestas?
 void Grafo::retornaAgmEmSubgrafoPorPrim(vector<int> &conjVeticeInduzido)
 {
-    if (conjVeticeInduzido.size() == 1)
+    if (conjVeticeInduzido.front() == -1 && conjVeticeInduzido.size() == 1) // seleciona todos os vertices do grafo
     {
         conjVeticeInduzido.pop_back();
         for (int i = 0; i < this->nVerticesArquivo; ++i)
@@ -494,14 +399,15 @@ void Grafo::retornaAgmEmSubgrafoPorPrim(vector<int> &conjVeticeInduzido)
             conjVeticeInduzido.push_back(i);
         }
     }
-    Grafo *subgrafo = getSubGrafo(conjVeticeInduzido, false);
+    Grafo *subgrafo = retornaSubgrafoVerticeInduzido(conjVeticeInduzido,
+                                                     false); // obrigatorio false para algoritmo de Prim
     priority_queue<pair<int, Vertice *>, vector<pair<int, Vertice *>>, greater<>> lista; // peso e vertice
     vector<int> key(this->nVerticesArquivo, (numeric_limits<int>::max() / 2));
     vector<bool> finished(this->nVerticesArquivo, false);
     vector<Vertice *> parent(this->nVerticesArquivo, nullptr);
-    auto i = subgrafo->vertices;
-    key[i->idNoArquivo] = 0;
-    lista.push(make_pair(0, i));
+    auto p = subgrafo->vertices;
+    key[p->idNoArquivo] = 0;
+    lista.push(make_pair(0, p));
     while (!lista.empty())
     {
         auto u = lista.top().second;
@@ -519,17 +425,17 @@ void Grafo::retornaAgmEmSubgrafoPorPrim(vector<int> &conjVeticeInduzido)
     }
     cout << "\nArvore de minimo custo: \n";
     vector<pair<int, int>> conjArestasInduzidas;
-    for (int i = 0; i < subgrafo->nVerticesArquivo; i++)
+    for (int i = 0; i < this->nVerticesArquivo; i++)
     {
         if (parent[i] != nullptr)
         {
             cout << "(" << parent[i]->idNoArquivo << "," << i << ") ";
-            conjArestasInduzidas.push_back(make_pair(parent[i]->idNoArquivo, i));
+            conjArestasInduzidas.emplace_back(parent[i]->idNoArquivo, i);
         }
     }
-    auto grafoAresta = getSubGraphEdgeInduced(conjArestasInduzidas, false);
+    auto grafoAresta = retornaSubgrafoArestaInduzido(conjArestasInduzidas, false);
 
-    grafoAresta->writeDotFile(false);
+    grafoAresta->escreveArquivoDot(false);
     delete grafoAresta;
 
     int somaPesos = 0;
@@ -571,9 +477,9 @@ void Grafo::retornaAgmEmSubgrafoPorKruskal(vector<int> &conjVeticeInduzido)
             conjVeticeInduzido.push_back(i);
         }
     }
-    Grafo *subgrafo = getSubGrafo(conjVeticeInduzido, false);
+    Grafo *subgrafo = retornaSubgrafoVerticeInduzido(conjVeticeInduzido, false);
     DisjointSet ds(this->nVerticesArquivo);
-    vector<pair<Vertice *, Aresta *>> arestas; // com essa representacao eu tenho informacao sobre cada aresta do grafo (u,v), e tenho acesso ao peso da aresta por v->peso
+    vector<pair<Vertice *, Aresta *>> arestas; // com essa representacao eu tenho informacao sobre cada aresta do grafo (u, v), e tenho acesso ao peso da aresta por v->peso
     arestas.reserve(subgrafo->nArestasArquivo);
     for (auto i = subgrafo->vertices; i != nullptr; i = i->proxVertice)
     {
@@ -586,7 +492,7 @@ void Grafo::retornaAgmEmSubgrafoPorKruskal(vector<int> &conjVeticeInduzido)
     {
         return a.second->peso < b.second->peso;
     });
-
+    int contadorArestas = 0;
     vector<pair<int, int>> conjArestasInduzidas;
     int somaPesos = 0;
     for (auto &aresta: arestas)
@@ -596,11 +502,16 @@ void Grafo::retornaAgmEmSubgrafoPorKruskal(vector<int> &conjVeticeInduzido)
             ds.unionSet(aresta.first->idNoArquivo, aresta.second->id);
             somaPesos += aresta.second->peso;
             cout << "(" << aresta.first->idNoArquivo << "," << aresta.second->id << ") ";
-            conjArestasInduzidas.push_back(make_pair(aresta.first->idNoArquivo, aresta.second->id));
+            conjArestasInduzidas.emplace_back(aresta.first->idNoArquivo, aresta.second->id);
+            contadorArestas++;
+        }
+        if (contadorArestas >= subgrafo->nVerticesArquivo - 1)
+        {
+            break;
         }
     }
-    auto grafoAresta = getSubGraphEdgeInduced(conjArestasInduzidas, false);
-    grafoAresta->writeDotFile(false);
+    auto grafoAresta = retornaSubgrafoArestaInduzido(conjArestasInduzidas, false);
+    grafoAresta->escreveArquivoDot(false);
     delete grafoAresta;
     cout << "\nSoma dos pesos: " << somaPesos << "\n";
     cout << "\n";
@@ -608,7 +519,7 @@ void Grafo::retornaAgmEmSubgrafoPorKruskal(vector<int> &conjVeticeInduzido)
 }
 
 
-void Grafo::imprimeAGMcomArestasDeRetorno(int id)
+void Grafo::imprimeAgmComArestasDeRetorno(int id)
 {
     Vertice *u = encontrar(id);
     if (u == nullptr)
@@ -617,7 +528,7 @@ void Grafo::imprimeAGMcomArestasDeRetorno(int id)
         return;
     }
     vector<bool> visited(this->nVerticesArquivo, false);
-    stack<pair<int, int>> backEdges;
+    stack<tuple<int, int, int>> backEdges;
     vector<pair<int, int>> arestas;
     vector<Vertice *> lastest(this->nVerticesArquivo, nullptr);
     stack<Vertice *> stack;
@@ -638,25 +549,26 @@ void Grafo::imprimeAGMcomArestasDeRetorno(int id)
                     if (lastest[v->id] == nullptr)
                     {
                         lastest[v->id] = u;
-                        arestas.push_back({u->idNoArquivo, v->id});
+                        arestas.emplace_back(u->idNoArquivo, v->id);
                     }
                     stack.push(encontrar(v->id));
                 }
                 if ((visited[v->id] && visited[u->idNoArquivo]) &&
-                    v->id != lastest[u->idNoArquivo]->idNoArquivo) // AVISO: por causa desse if, o grafo PRECISA comecar pelo vertice 0. TODO: simplificar esse if
+                    v->id !=
+                    lastest[u->idNoArquivo]->idNoArquivo) // AVISO: por causa desse if, o grafo PRECISA comecar pelo vertice 0. TODO: simplificar esse if
                 {
-                    backEdges.push({u->idNoArquivo, v->id});
+                    backEdges.push({u->idNoArquivo, v->id, v->peso});
                 }
             }
         }
     }
-    auto grafoAresta = getSubGraphEdgeInduced(arestas, false);
-    grafoAresta->writeDotFile(false, backEdges);
+    auto grafoAresta = retornaSubgrafoArestaInduzido(arestas, false);
+    grafoAresta->escreveArquivoDot(false, &backEdges);
     delete grafoAresta;
     cout << "\nArestas de retorno: \n";
     while (!backEdges.empty())
     {
-        cout << "(" << backEdges.top().first << "," << backEdges.top().second << ") ";
+        cout << "(" << get<0>(backEdges.top()) << "," << get<1>(backEdges.top()) << ") ";
         backEdges.pop();
     }
 }
@@ -667,32 +579,43 @@ double Grafo::coeficienteAglomeracaoLocal(int id)
     if (u == nullptr)
     {
         cout << "Vertice nao encontrado\n";
-        assert(false);
     }
-    vector<int> neighborsU;
+    vector<int> vizinhos;
     for (auto v = u->proxAresta; v != nullptr; v = v->proxAresta)
     {
-        neighborsU.push_back(v->id);
+        vizinhos.push_back(v->id);
     }
     int links = 0;
-    for (int i = 0; i < neighborsU.size(); i++)
+    for (int i = 0; i < vizinhos.size(); i++)
     {
-        auto v = encontrar(neighborsU[i]);
+        auto v = encontrar(vizinhos[i]);
         for (auto w = v->proxAresta; w != nullptr; w = w->proxAresta)
         {
-            if (find(neighborsU.begin(), neighborsU.end(), w->id) != neighborsU.end())
+            if (find(vizinhos.begin(), vizinhos.end(), w->id) != vizinhos.end())
             {
                 links++;
             }
         }
     }
-    if (neighborsU.size() <= 1)
+    if (vizinhos.size() <= 1)
     {
-        cout << "Clustering coefficient: 0\n";
+        cout << "Coeficiente de aglomeracao Local: 0\n";
         return 0.0;
     }
-    cout << "Clustering coefficient: " << (double) links / (neighborsU.size() * (neighborsU.size() - 1)) << "\n";
-    return (double) links / (neighborsU.size() * (neighborsU.size() - 1));
+    int grauV = static_cast<int>(vizinhos.size());
+
+    /*
+     * seguindo essa formula : https://en.wikipedia.org/wiki/Local_clustering_coefficient
+     * */
+//    double coeficiente = this->getOpcDirec() ? (double) links / (grauV * (grauV - 1)) : (double) links * 2 /
+//                                                                                        (grauV * (grauV - 1));
+
+/*
+ * seguindo orientacao do professor:
+ * */
+    double coeficiente = (double) links * 2 /(grauV * (grauV - 1));
+    cout << "Coeficiente de aglomeracao Local: " << coeficiente << "\n";
+    return coeficiente;
 }
 
 void Grafo::coeficienteAglomeracaoMedio()
@@ -704,35 +627,16 @@ void Grafo::coeficienteAglomeracaoMedio()
         soma += coeficienteAglomeracaoLocal(i->idNoArquivo);
         n++;
     }
-    cout << "Average clustering coefficient: " << soma / (double) n << "\n";
+    cout << "Coeficiente de aglomeracao Medio: " << soma / (double) n << "\n";
 }
 
-void Grafo::averageClusteringCoefficient()
-{
-    /*
-     * INCORRETO
-     * */
-    int links = 0;
-    for (auto i = vertices; i != nullptr; i = i->proxVertice)
-    {
-        for (auto j = i->proxAresta; j != nullptr; j = j->proxAresta)
-        {
-            if (i->idNoArquivo != j->id)
-            {
-                links++;
-            }
-        }
-    }
-    cout << "Average clustering coefficient: " << (double) links / (nVerticesArquivo * (nVerticesArquivo - 1)) << "\n";
-}
-
-vector<Vertice *> Grafo::breadthFirstSearch(int id)
+vector<Vertice *> Grafo::buscaEmLargura(int id)
 {
     Vertice *x = encontrar(id);
     if (x == nullptr)
     {
         cout << "Vertice nao encontrado\n";
-        assert(false);
+        exit(10);
     }
     vector<bool> visited(this->nVerticesArquivo, false);
     queue<Vertice *> q;
@@ -743,7 +647,6 @@ vector<Vertice *> Grafo::breadthFirstSearch(int id)
     {
         auto u = q.front();
         q.pop();
-//        cout << u->idNoArquivo << "->";
         result.push_back(u);
         for (auto v = u->proxAresta; v != nullptr; v = v->proxAresta)
         {
@@ -803,7 +706,7 @@ void Grafo::fechoTransitivoIndireto(int id)
         vector<Vertice *> fecho;
         if (!visited[v->idNoArquivo])
         {
-            fecho = breadthFirstSearch(v->idNoArquivo);
+            fecho = buscaEmLargura(v->idNoArquivo);
         }
         if (find(fecho.begin(), fecho.end(), inicial) != fecho.end())
         {
@@ -818,54 +721,72 @@ void Grafo::fechoTransitivoIndireto(int id)
     }
 }
 
-Grafo *Grafo::getSubGraphEdgeInduced(vector<pair<int, int>> &conjArestasInduzidas, bool direcionado)
+Grafo *Grafo::retornaSubgrafoArestaInduzido(vector<pair<int, int>> &conjArestasInduzidas, bool direcionado)
 {
     vector<const char *> argv{"subgrafo",
-                              const_cast<char *>(this->getPathArquivoEntrada()),
-                              const_cast<char *>(this->getPathArquivoSaida()),
+                              this->getPathArquivoEntrada().c_str(),
+                              this->getPathArquivoSaida().c_str(),
                               const_cast<char *>(direcionado ? "1" : "0"),
-                              const_cast<char *>(getOpcPesoAresta()),
-                              const_cast<char *>(getOpcPesoNos())};
+                              const_cast<char *>(getOpcPesoAresta() ? "1" : "0"),
+                              const_cast<char *>(getOpcPesoNos() ? "1" : "0")};
     auto sub = new Grafo(argv.size(), const_cast<char **>(argv.data()));
     int i = 0;
     for (auto aresta: conjArestasInduzidas)
     {
-        sub->adicionaNo(aresta.first, aresta.second, 0);
-        i++;
+        for (auto v = this->vertices; v != nullptr; v = v->proxVertice)
+        {
+            if (v->idNoArquivo == aresta.first)
+            {
+                for (auto w = v->proxAresta; w != nullptr; w = w->proxAresta)
+                {
+                    if (w->id == aresta.second)
+                    {
+                        sub->adicionaNo({aresta.first, aresta.second}, w->peso);
+                        i++;
+                    }
+                }
+            }
+        }
     }
     sub->nVerticesArquivo = i;
     sub->nVerticesMemoria = i;
-    sub->nArestasArquivo = conjArestasInduzidas.size() *
-                           2; // contando ida e volta, visto que estava fazendo isso desde o inicio do projeto
+    sub->nArestasArquivo = static_cast<int>(conjArestasInduzidas.size() *
+                                            2U); // contando ida e volta, visto estar a fazer isso desde o inicio do projeto
     return sub;
 }
 
-void Grafo::writeDotFile(bool direcionado, stack<pair<int, int>> conjArestasRetorno)
+void Grafo::escreveArquivoDot(bool direcionado, stack<tuple<int, int, int>> *conjArestasRetorno,
+                              const std::string_view *pathSaida)
 {
     ofstream file;
-    file.open(this->getPathArquivoSaida());
-    file << "strict graph G {\n";
-    string seta = direcionado ? "->" : "--";
+    file.open(pathSaida ? pathSaida->data() : this->getPathArquivoSaida().c_str());
+    string header = this->getOpcDirec() ? "digraph" : "graph";
+    file << "strict " << header << " {\n";
+    string seta = direcionado ? " -> " : " -- ";
     for (auto i = this->vertices; i != nullptr; i = i->proxVertice)
     {
         for (auto j = i->proxAresta; j != nullptr; j = j->proxAresta)
         {
             if (i->idNoArquivo != j->id)
             {
-                file << i->idNoArquivo << seta << j->id << ";\n";
+                file << i->idNoArquivo << seta << j->id << " [label=" << j->peso << "];\n";
             }
         }
     }
-    if (!conjArestasRetorno.empty())
+    if (conjArestasRetorno != nullptr)
     {
-        while (!conjArestasRetorno.empty())
+        while (!conjArestasRetorno->empty())
         {
-            auto aresta = conjArestasRetorno.top();
-            conjArestasRetorno.pop();
-            file << aresta.first << seta << aresta.second << "[style=dotted];\n";
+            auto aresta = conjArestasRetorno->top();
+            file << get<0>(aresta) << seta << get<1>(aresta) << "[label=" << get<2>(aresta) << " style=dotted];\n";
+            conjArestasRetorno->pop();
         }
     }
     file << "}\n";
     file.close();
 }
+
+
+
+
 

@@ -1,82 +1,20 @@
 #pragma once
 
 #include <vector>
+#include <string_view>
 #include <stack>
-#include <unordered_map>
-
-using namespace std;
-
-class DisjointSet
-{
-private:
-    vector<int> *rank;
-    vector<int> *parent;
-public:
-    DisjointSet(int n)
-    {
-        rank = new vector<int>(n);
-        parent = new vector<int>(n);
-        for (int i = 0; i < n; i++)
-        {
-            (*rank)[i] = 0;
-            (*parent)[i] = i;
-        }
-    }
-
-    ~DisjointSet()
-    {
-        delete rank;
-        delete parent;
-    }
-
-    void makeSet(int v)
-    {
-        (*parent)[v] = v;
-        (*rank)[v] = 0;
-    }
-
-    int find(int v) // otimizacao path compression
-    {
-        if (v == (*parent)[v])
-        {
-            return v;
-        }
-        return (*parent)[v] = find((*parent)[v]);
-    }
-
-    void unionSet(int a, int b) // otimizacao uniao por rank
-    {
-        a = find(a);
-        b = find(b);
-        if (a != b)
-        {
-            if ((*rank)[a] < (*rank)[b])
-            {
-                swap(a, b);
-            }
-            (*parent)[b] = a;
-            if ((*rank)[a] == (*rank)[b])
-            {
-                (*rank)[a]++;
-            }
-        }
-    }
-};
 
 class Aresta
 {
 private:
     int id; // TODO: seria vantagem ter um pointeiro para o vertice que aresta aponta?
-    int idNaMemoria;
     int peso;
-    int grauInp; // TODO: ATUALIZAR OS GRAUS
-    int grauOut;
     Aresta *proxAresta;
 
     friend class Grafo;
 
 public:
-    Aresta() : id(-1), idNaMemoria(-1), peso(1), grauInp(0), grauOut(0), proxAresta(nullptr)
+    Aresta() : id(-1), peso(1), proxAresta(nullptr)
     {}
 
     ~Aresta()
@@ -86,15 +24,13 @@ public:
 
 };
 
-
 class Vertice
 {
 private:
-    int idNaMemoria; // TODO: acho que não precisa disso, verificar no futuro
-    int idNoArquivo;
-    int peso; // TODO: COMO USAR O PESO NOS VERTICES, TRABALHO 2?
-    int grauInp; // TODO: ATUALIZAR OS GRAUS
+    int idNoArquivo; // poderia trocar para string, assim funcionaria para grafos com nomes de vertices
+    int peso;
     int grauOut;
+    int grauIn;
     Aresta *proxAresta;
     Vertice *proxVertice;
 
@@ -102,7 +38,7 @@ private:
 
 public:
     Vertice()
-            : idNaMemoria(-1), idNoArquivo(-1), peso(-1), grauInp(0), grauOut(0), proxVertice(nullptr),
+            : idNoArquivo(-1), peso(-1), grauOut(0), grauIn(0), proxVertice(nullptr),
               proxAresta(nullptr)
     {}
 
@@ -116,18 +52,21 @@ public:
 class Grafo
 {
 private:
+    using pairPontos = std::pair<int, int>; // lembre-se que uma aresta eh representada por dois pontos (origem e destino)
     int nVerticesArquivo;
-    int nVerticesMemoria;
+    int nVerticesMemoria; // contador de vertices criados de fato, possivel auxilio em debug, nada mais
     int nArestasArquivo;
     Vertice *vertices; // primeiro vertices da lista
-    // TODO: criar uma tabela hash para armazenar os vertices, para acelerar a busca por um vertice especifico
-    const char *path_arquivo_entrada;
-    const char *path_arquivo_saida;
-    const char *Opc_Direc;
-    const char *Opc_Peso_Aresta;
-    const char *Opc_Peso_Nos;
+    // Vertice *ultimo; // ultimo vertice da lista
+    // TODO: possibilidade de criar uma tabela hash para armazenar os vertices, para acelerar a busca por um vertice especifico
 
-    void adicionaNo(int &idNoArquivo, int arestaID, int peso);
+    std::string path_arquivo_entrada;
+    std::string path_arquivo_saida;
+    std::string Opc_Direc;
+    std::string Opc_Peso_Aresta;
+    std::string Opc_Peso_Nos;
+
+    void adicionaNo(pairPontos, int peso);
 
     Vertice *criaNovoVertice(int idNoArquivo, int peso);
 
@@ -135,59 +74,54 @@ private:
 
 public:
 
-    Grafo(int argc, char **argv);
+    Grafo(size_t argc, char **argv);
 
     ~Grafo();
 
-    void leitura(const char *path);
+    Grafo(const Grafo &) = delete;
+
+    Grafo &operator=(const Grafo &) = delete;
+
+    void leitura(std::string_view path);
 
     void imprimirGrafo();
 
-    const char *getPathArquivoEntrada() const;
+    [[nodiscard]] std::string getPathArquivoEntrada() const;
 
-    const char *getPathArquivoSaida() const;
+    [[nodiscard]] std::string getPathArquivoSaida() const;
 
-    const char *getOpcDirec() const;
+    [[nodiscard]] bool getOpcDirec() const;
 
-    const char *getOpcPesoAresta() const;
+    [[nodiscard]] bool getOpcPesoAresta() const;
 
-    const char *getOpcPesoNos() const;
-
-    void imprimeFechoTransitivoDireto(int idNoArquivo);
-
-    void imprimeFechoTransitivoIndireto(int idNoArquivo);
-
-    void profundidade(int k, vector<pair<Vertice *, bool>> *visitados);
-
-    bool profundidade(int id, int i, vector<tuple<Vertice *, bool, bool>> *visitados);
+    [[nodiscard]] bool getOpcPesoNos() const;
 
     void caminhoMinimoDijkstra(int src, int destino);
 
     void caminhoMinimoFloyd(int src, int destino);
 
-    Grafo *getSubGrafo(const vector<int> &conjVeticeInduzido, bool direcionado);
+    Grafo *retornaSubgrafoVerticeInduzido(const std::vector<int> &conjVeticeInduzido, bool direcionado);
 
-    void retornaAgmEmSubgrafoPorPrim(vector<int> &conjVeticeInduzido);
+    void retornaAgmEmSubgrafoPorPrim(std::vector<int> &conjVeticeInduzido);
 
-    void retornaAgmEmSubgrafoPorKruskal(vector<int> &conjVeticeInduzido);
+    void retornaAgmEmSubgrafoPorKruskal(std::vector<int> &conjVeticeInduzido);
 
     Vertice *encontrar(int id);
 
-    void imprimeAGMcomArestasDeRetorno(int id);
+    void imprimeAgmComArestasDeRetorno(int id);
 
     double coeficienteAglomeracaoLocal(int id);
 
-    void averageClusteringCoefficient();
-
     void coeficienteAglomeracaoMedio();
 
-    vector<Vertice*> breadthFirstSearch(int id);
+    std::vector<Vertice *> buscaEmLargura(int id);
 
     void fechoTransitivoDireto(int id);
 
     void fechoTransitivoIndireto(int id);
 
-    Grafo *getSubGraphEdgeInduced(vector<pair<int, int>> &conjArestasInduzidas, bool direcionado);
+    Grafo *retornaSubgrafoArestaInduzido(std::vector<std::pair<int, int>> &conjArestasInduzidas, bool direcionado);
 
-    void writeDotFile(bool direcionado, stack<pair<int, int>> conjArestasRetorno = {});
+    void escreveArquivoDot(bool direcionado, std::stack<std::tuple<int, int, int>> *conjArestasRetorno = nullptr,
+                           const std::string_view *pathSaida = nullptr);
 };
