@@ -1,7 +1,7 @@
 # StudyGraphTheory
 
 ## Desenvolvido por:
-> DANIEL FAGUNDES 
+> DANIEL FAGUNDES - 100%
 
 ### Objetivo do trabalho:
 Desenvolver um Tipo Abstrato de Dados - TAD ou uma Classe que represente grafos simples, orientados e não
@@ -56,23 +56,7 @@ destacando as arestas de retorno;
 > Os itens g, h e i deverão ter saídas dadas na linguagem “dot” para geração de grafos para no software
 Graphviz
 
-### BUILD 1
-
-colocar o arquivo de entrada na pasta "src",usar a seguinte linha via terminal na pasta para compilar:
-
-```
-g++ -O3 *.cpp -o execGrupoX -g
-```
-
-e a seguinte linha para rodar:
-```
-./execGrupoX <arquivo_entrada> <arquivo_saida> <Opc_Direc> <Opc_Peso_Aresta> <Opc_Peso_Nos>
-```
-exemplo de linha para execução:
-```
-./execGrupoX entrada.txt saida.dot 0 1 0
-```
-## BUILD ALTERNATIVA 2
+## BUILD 1
 
 PRE REQUISITOS:
 > CMAKE
@@ -86,4 +70,20 @@ cmake -DCMAKE_BUILD_TYPE=Release ../.
 ```
 ```
 make && ./execGrupo5 <arquivo_entrada> <arquivo_saida> <Opc_Direc> <Opc_Peso_Aresta> <Opc_Peso_Nos>
+```
+
+### BUILD 2
+
+Comando para compilar:
+
+```
+g++ -O3 *.cpp -o execGrupoX -g
+```
+
+```
+./execGrupo5 <arquivo_entrada> <arquivo_saida> <Opc_Direc> <Opc_Peso_Aresta> <Opc_Peso_Nos>
+```
+Exemplo:
+```
+./execGrupo5 entrada.txt saida.dot 0 1 0
 ```
