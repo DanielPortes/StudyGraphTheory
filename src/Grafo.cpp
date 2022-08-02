@@ -627,7 +627,7 @@ void Grafo::coeficienteAglomeracaoMedio()
         soma += coeficienteAglomeracaoLocal(i->idNoArquivo);
         n++;
     }
-    cout << "Coeficiente de aglomeracao Medio: " << soma / (double) n << "\n";
+    cout << "\n\nCoeficiente de aglomeracao Medio: " << soma / (double) n << "\n";
 }
 
 vector<Vertice *> Grafo::buscaEmLargura(int id)
