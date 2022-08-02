@@ -79,11 +79,11 @@ PRE REQUISITOS:
 
 ### PARA EXECUTAR
 
-ABRA O TERMINAL NA PASTA SRC E EXECUTE:
-
+Crie uma pasta chamada Cmake e dentro da pasta execute:
+> cmake -DCMAKE_BUILD_TYPE=Release <path_CMakeLists.txt>
 ```
-cmake ../.
+cmake -DCMAKE_BUILD_TYPE=Release ../.
 ```
 ```
-make && ./execGrupoX <arquivo_entrada> <arquivo_saida> <Opc_Direc> <Opc_Peso_Aresta> <Opc_Peso_Nos>
+make && ./execGrupo5 <arquivo_entrada> <arquivo_saida> <Opc_Direc> <Opc_Peso_Aresta> <Opc_Peso_Nos>
 ```
