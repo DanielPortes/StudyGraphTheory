@@ -120,14 +120,34 @@ void Grafo::leitura(string_view path)
         }
         this->adicionaNo({verticeIdArquivo, arestaId}, pesoAresta);
     }
+    if (this->nVerticesArquivo != this->nVerticesMemoria)
+    {
+        addVerticesDesconexos();
+        this->nVerticesMemoria--; // contando 1 a mais
+    }
     this->imprimirGrafo();
+}
+
+void Grafo::addVerticesDesconexos()
+{
+    auto ultimo = this->vertices;
+    for (; ultimo->proxVertice != nullptr; ultimo = ultimo->proxVertice)
+    {}
+    for (int i = 0; i < this->nVerticesArquivo; ++i)
+    {
+        if (encontrar(i) == nullptr)
+        {
+            ultimo->proxVertice = this->criaNovoVertice(i, 0);
+            ultimo = ultimo->proxVertice;
+        }
+    }
 }
 
 Vertice *Grafo::criaNovoVertice(int idNoArquivo, int peso)
 {
     auto vertice = new Vertice();
     vertice->idNoArquivo = idNoArquivo;
-    ++this->nVerticesMemoria;
+    this->nVerticesMemoria++;
     vertice->peso = peso;
     return vertice;
 }
@@ -377,13 +397,11 @@ Grafo *Grafo::retornaSubgrafoVerticeInduzido(const vector<int> &conjVeticeInduzi
                 if (find(conjVeticeInduzido.begin(), conjVeticeInduzido.end(), j->id) != conjVeticeInduzido.end())
                 {
                     subgrafo->adicionaNo({i->idNoArquivo, j->id}, j->peso);
-                    ++idContador;
                 }
             }
         }
     }
     subgrafo->nVerticesArquivo = static_cast<int>(conjVeticeInduzido.size());
-    subgrafo->nVerticesMemoria = idContador;
     return subgrafo; // lembrar de deletar o grafo retornado
 }
 
@@ -402,7 +420,7 @@ void Grafo::retornaAgmEmSubgrafoPorPrim(vector<int> &conjVeticeInduzido)
     Grafo *subgrafo = retornaSubgrafoVerticeInduzido(conjVeticeInduzido,
                                                      false); // obrigatorio false para algoritmo de Prim
     priority_queue<pair<int, Vertice *>, vector<pair<int, Vertice *>>, greater<>> lista; // peso e vertice
-    vector<int> key(this->nVerticesArquivo, (numeric_limits<int>::max() / 2));
+    vector<int> key(this->nVerticesArquivo, (numeric_limits<int>::max()));
     vector<bool> finished(this->nVerticesArquivo, false);
     vector<Vertice *> parent(this->nVerticesArquivo, nullptr);
     auto p = subgrafo->vertices;
@@ -412,6 +430,10 @@ void Grafo::retornaAgmEmSubgrafoPorPrim(vector<int> &conjVeticeInduzido)
     {
         auto u = lista.top().second;
         lista.pop();
+        if (finished[u->idNoArquivo])
+        {
+            continue;
+        }
         finished[u->idNoArquivo] = true;
         for (auto v = u->proxAresta; v != nullptr; v = v->proxAresta)
         {
@@ -425,7 +447,7 @@ void Grafo::retornaAgmEmSubgrafoPorPrim(vector<int> &conjVeticeInduzido)
     }
     cout << "\nArvore de minimo custo: \n";
     vector<pair<int, int>> conjArestasInduzidas;
-    for (int i = 0; i < this->nVerticesArquivo; i++)
+    for (int i = 0; i < subgrafo->nVerticesArquivo; i++)
     {
         if (parent[i] != nullptr)
         {
@@ -441,7 +463,7 @@ void Grafo::retornaAgmEmSubgrafoPorPrim(vector<int> &conjVeticeInduzido)
     int somaPesos = 0;
     for (auto valor: key)
     {
-        if (valor != (numeric_limits<int>::max() / 2))
+        if (valor != (numeric_limits<int>::max()))
         {
             somaPesos += valor;
         }
@@ -452,7 +474,6 @@ void Grafo::retornaAgmEmSubgrafoPorPrim(vector<int> &conjVeticeInduzido)
     delete subgrafo;
 }
 
-
 Vertice *Grafo::encontrar(int id)
 {
     Vertice *u = vertices;
@@ -462,7 +483,6 @@ Vertice *Grafo::encontrar(int id)
     }
     return u;
 }
-
 
 // TODO: verificar se o grafo eh conexo e tem peso nas arestas?
 // TODO: Otimizacao: pensar em uma forma de usar a estrutura de dados set disjunto mais inteligente, para nao precisar criar todos os vertices do grafo original
@@ -503,7 +523,7 @@ void Grafo::retornaAgmEmSubgrafoPorKruskal(vector<int> &conjVeticeInduzido)
             somaPesos += aresta.second->peso;
             cout << "(" << aresta.first->idNoArquivo << "," << aresta.second->id << ") ";
             conjArestasInduzidas.emplace_back(aresta.first->idNoArquivo, aresta.second->id);
-            contadorArestas++;
+//            contadorArestas++;
         }
         if (contadorArestas >= subgrafo->nVerticesArquivo - 1)
         {
@@ -613,7 +633,7 @@ double Grafo::coeficienteAglomeracaoLocal(int id)
 /*
  * seguindo orientacao do professor:
  * */
-    double coeficiente = (double) links * 2 /(grauV * (grauV - 1));
+    double coeficiente = (double) links * 2 / (grauV * (grauV - 1));
     cout << "Coeficiente de aglomeracao Local: " << coeficiente << "\n";
     return coeficiente;
 }

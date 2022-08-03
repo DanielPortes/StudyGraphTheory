@@ -8,8 +8,6 @@ include_directories(src)
 
 message(NOTICE "\n\n\tDesenvolvido por: Daniel Fagundes - 100% \n\n\n" ...)
 
-set(CMAKE_BUILD_TYPE Release)
-
 add_executable(execGrupo5
         src/Grafo.cpp
         src/Grafo.h

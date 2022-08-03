@@ -72,6 +72,7 @@ private:
 
     void criaNovaAresta(Vertice *&vertice, int idPonta, int pesoAresta);
 
+    void addVerticesDesconexos();
 public:
 
     Grafo(size_t argc, char **argv);
